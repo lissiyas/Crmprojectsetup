@@ -4,6 +4,9 @@
   import path from 'path';
 
   export default defineConfig({
+     // If you will host at https://lissiyas.github.io/Crmprojectsetup set base to '/Crmprojectsetup/'
+  // If you will host at your user site (https://lissiyas.github.io) set base: '/'
+    base: '/Crmprojectsetup/',
     plugins: [react()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
