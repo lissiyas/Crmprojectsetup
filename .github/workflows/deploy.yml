@@ -1,4 +1,4 @@
-name: Build and Deploy to GitHub Pages
+name: Build and Deploy Vite App to GitHub Pages
 
 on:
   push:
@@ -28,28 +28,29 @@ jobs:
           node-version: 18
           cache: npm
 
-      # 👇 Generate package-lock.json if it doesn't exist
+      # 👇 Generate package-lock.json if missing
       - name: Generate lock file if missing
         run: |
           if [ ! -f package-lock.json ]; then
-            echo "Lock file missing — generating one..."
+            echo "package-lock.json missing — generating one..."
             npm install --package-lock-only
           fi
 
+      # 👇 Use npm ci for faster installs (works once lock file exists)
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || npm install
 
-      - name: Build project
+      - name: Build Vite project
         run: npm run build
 
+      # 👇 For SPA routing (React, Vue, etc.)
       - name: Create 404.html fallback
-        if: success()
         run: |
           if [ -d "./dist" ] && [ -f "./dist/index.html" ]; then
             cp ./dist/index.html ./dist/404.html
           fi
 
-      - name: Upload artifact for GitHub Pages
+      - name: Upload build to GitHub Pages
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
