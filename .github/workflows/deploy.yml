@@ -1,95 +1,67 @@
-name: Build and deploy to GitHub Pages
+name: Build and Deploy to GitHub Pages
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: 18
+          cache: npm
 
-      - name: Print environment and workspace
+      # 👇 Generate package-lock.json if it doesn't exist
+      - name: Generate lock file if missing
         run: |
-          echo "=== node / npm versions ==="
-          node --version || true
-          npm --version || true
-          echo
-          echo "=== current dir ==="
-          pwd
-          echo "=== list files ==="
-          ls -la
-          echo
-          echo "=== repo root listing (src, package.json, vite config) ==="
-          ls -la src || true
-          ls -la . || true
-          echo
-          echo "=== package.json ==="
-          if [ -f package.json ]; then
-            cat package.json
-          else
-            echo "no package.json found"
-          fi
-          echo
-          echo "=== lockfile check ==="
-          if [ -f package-lock.json ]; then
-            echo "package-lock.json found"
-          elif [ -f npm-shrinkwrap.json ]; then
-            echo "npm-shrinkwrap.json found"
-          elif [ -f yarn.lock ]; then
-            echo "yarn.lock found"
-          else
-            echo "no lockfile found"
+          if [ ! -f package-lock.json ]; then
+            echo "Lock file missing — generating one..."
+            npm install --package-lock-only
           fi
 
       - name: Install dependencies
-        run: |
-          # use npm install so workflow runs even if no lockfile is present
-          npm install
+        run: npm ci
 
-      - name: Build (capture logs)
-        run: |
-          echo "Starting build..."
-          # write combined stdout/stderr to build.log for upload
-          npm run build 2>&1 | tee build.log
-          echo "Build exit code: ${PIPESTATUS[0]}"
-        continue-on-error: false
+      - name: Build project
+        run: npm run build
 
-      - name: Upload build log (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-
-      # Optional: make a 404.html copy so client-side routing doesn't 404 on refresh
-      - name: Create 404 fallback for SPA routing
-        if: always()
+      - name: Create 404.html fallback
+        if: success()
         run: |
           if [ -d "./dist" ] && [ -f "./dist/index.html" ]; then
             cp ./dist/index.html ./dist/404.html
           fi
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
+        id: deployment
+        uses: actions/deploy-pages@v4
